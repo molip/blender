@@ -38,37 +38,47 @@ class FaceGrid:
 			self.x = x
 			self.y = y
 
-	def __init__(self, face):
+	def __init__(self, loop):
 		self.faces = set()
 		self.items = []
 		self.min_x = self.min_y = self.max_x = self.max_y = 0
-		self.add_item(face, 0, 0)
+
+		if not loop.face.select:
+			raise RuntimeError('FaceGrid: face not selected')
+
+		doing = [FaceGrid.Item(loop, 0, 0)]		
+		self.faces.add(loop.face)
+
+		while doing:
+			new_items = []
+			print('FaceGrid: doing %d items' % len(doing))
+			for item in doing:
+				self.min_x = min(self.min_x, item.x)
+				self.min_y = min(self.min_y, item.y)
+				self.max_x = max(self.max_x, item.x)
+				self.max_y = max(self.max_y, item.y)
+				neighbours = self.create_neighbour_items(item)
+				new_items.extend(neighbours)
+				self.faces.update([i.loop.face for i in neighbours])
+			self.items.extend(doing)
+			doing = new_items
 
 		print('FaceGrid: width = %d, height = %d, faces = %d' % (1 + self.max_x - self.min_x, 1 + self.max_y - self.min_y, len(self.items)))
 
-	def add_item(self, loop, x, y):
-		if not loop.face.select:
-			raise RuntimeError('Island.add_item: face not selected')
-
-		item = FaceGrid.Item(loop, x, y)
-		self.items.append(item)
-		self.faces.add(loop.face)
-
-		self.min_x = min(self.min_x, x)
-		self.min_y = min(self.min_y, y)
-		self.max_x = max(self.max_x, x)
-		self.max_y = max(self.max_y, y)
-		
+	def create_neighbour_items(self, item):
 		twin_adjust_loop = [2, 1, 0, 3]
 		twin_delta_x = [0, 1, 0, -1]
 		twin_delta_y = [-1, 0, 1, 0]
 		
+		items = []
+		loop = item.loop
 		for i in range(4):
 			twin = loop.link_loop_radial_next
 			if twin and twin.face.select:
 				if not twin.face in self.faces:
-					self.add_item(increment_loop(twin, twin_adjust_loop[i]), x + twin_delta_x[i], y + twin_delta_y[i])
+					items.append(FaceGrid.Item(increment_loop(twin, twin_adjust_loop[i]), item.x + twin_delta_x[i], item.y + twin_delta_y[i]))
 			loop = loop.link_loop_next
+		return items
 
 class Cell:
 	class Face:
